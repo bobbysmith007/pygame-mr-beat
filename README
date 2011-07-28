@@ -1,0 +1,13 @@
+MR. BEAT README
+
+This is available under the GPLv3.  See http://www.gnu.org/licenses/gpl-3.0.html if you honestly haven't heard of the GPL.
+
+Mr. Beat is a Free (libre) Software program that mimics the major features of the Boss Dr. Beat metronome.  (http://www.bosscorp.co.jp/products/en/DB-88/)  You know, that cheesy talking   It has a bunch of different sounds you can use for the beat ticks, including a human voice!  
+
+To use on a GNU/Linux computer: Make sure you have the gtk and pygame modules installed.  These can be installed by opening up a terminal and typing "sudo apt-get install python-pygame python-gtk".  Then, move to the directory and run it with "python mrbeat.py".
+
+I have no idea how to run it on proprietary operating systems because I don't use any of them.  (Windows and Mac)  These OS's take away the freedoms every computer user should have.  See fsf.org to learn more about why.
+
+It is compatible with maemo devices, but make sure you install pygame by typing "sudo gainroot" and then "apt-get install python2.5-pygame".  It doesn't use maemo style or have any packaging.  If anyone would like to do, these would be greatly appreciated.  
+
+Any questions, comments, suggestions, or (if I'm really lucky) patches can be emailed to admin@BernsteinForPresident.com.  If anyone wants to record some better sounds, send them to me and if I like them better, I'll include them.
