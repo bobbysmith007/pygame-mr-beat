@@ -36,7 +36,7 @@ def ms_to_bpm(ms):
   return round((1000*60) / ms)
 
 def bpm_to_ms(bpm):
-  return round(bpm / (1000*60)) # beats/min * min/ms
+  return round(float(bpm)*(1000.0 / 60.0)) # beats/min * min/ms
 
 pygame.init()
 
@@ -110,6 +110,12 @@ class Main:
     self.tee_sound = pygame.mixer.Sound('sounds/tee.wav')
     self.ta_sound = pygame.mixer.Sound('sounds/ta.wav')
     self.null_sound = pygame.mixer.Sound('sounds/nothing.wav')
+    self.vocal_sound_list = [self.one_sound, self.two_sound, self.three_sound, 
+                             self.four_sound, self.five_sound, self.six_sound, 
+                             self.seven_sound, self.eight_sound]
+    self.sound_list=[self.tick_sound, self.tock_sound, self.pulse_sound, self.ping_sound,
+                     self.cowbell_sound, self.claves_sound, self.agogolow_sound,
+                     self.agogohigh_sound, self.cowbell_sound, self.shaker_sound]
         
         
     self.volume_master = self.wTree.get_widget("volume_master").get_value()
@@ -134,6 +140,7 @@ class Main:
     self.last_time = 0.0
     self.last_tap = None
     self.last_beat = 0
+    self.beats_this_measure = 0
     
     #Show the main window
     
@@ -239,10 +246,9 @@ class Main:
     self.beat = 0
 
   def ticking_loop(self):
-    self.last_time = currentms()
-    now = currentms()
     while self.playing:
-      if((now - self.last_time) > 25):
+      now = currentms()
+      if (now - self.last_time) > 25 :
         self.last_time = now
         self.tick_stuff()
       #print 'debug - '+str(self.last_time)+' - '+str(time.time())
@@ -250,149 +256,63 @@ class Main:
         gtk.main_iteration()
 
   def tick_stuff(self):
+    log.debug('Tick: %s  %s  %s %s %s', self.playing, self.tempo, bpm_to_ms( self.tempo / self.bpm ),self.bpm, self.beats_this_measure)
     #don't run if you don't need to
     if not self.playing: return False
     now = currentms()
-    dur = bpm_to_dur(self.tempo)
-
+    dur = bpm_to_ms( self.tempo / self.bpm ) # handle 16ths of instead of quarters
     # not time to beat yet
     if (now - self.last_beat) < dur: return False
-    #if tick number >= (calls to this function in a second*60 seconds in a minute)/the tempo
-    if self.ticks >= round(((1000/TIMER_ACCURACY)*60)/self.tempo) or self.ticks == 0:
-      #Reset these so that everything keeps ticking properly
-      self.ticks = 0
-      self.eighth_ticked = False
-      self.sixteenth_ticked = False
-      
-      #move beat down
-      if self.beat >= self.bpm or self.beat == 0:
-        self.beat = 1
-        tick_type = 'accent'
-      else:
-        self.beat += 1
-        tick_type = 'quarter'
+    self.last_beat = now
+    
+    if self.beats_this_measure >= ((int(self.bpm) * 4)-1):
+      self.beats_this_measure = 0
 
-      #update the display
-      self.SetBeatLabel(self.beat)
+    if self.beats_this_measure == 0: tick_type = 'accent'
+    elif self.beats_this_measure % 4 == 0: tick_type = 'quarter'
+    elif self.beats_this_measure % 2 == 0: tick_type = 'eighth'
+    else: tick_type = 'sixteenth'
 
-      #Play it
-      self.GetTickSound(tick_type).play()
-      
-    #The above, but half as much for 8th note ticks
-    elif self.eighth_ticked == False and self.ticks == round(((1000/TIMER_ACCURACY)*60)/(self.tempo * 2)):
-      #Reset this for the 16th note
-      #print "eighth"
-      self.sixteenth_ticked = False
-      self.triplet_ticked = False
-      self.eighth_ticked = True
-      self.GetTickSound('eighth').play()
-        
-    #The above, but find the modulus of above so it will work with the second tick, too
-    elif self.sixteenth_ticked == False and self.ticks % (((1000/TIMER_ACCURACY)*60)/(self.tempo * 2)) >= ((1000/TIMER_ACCURACY)*60)/(self.tempo * 4):
-      #print "sixteenth"
-      self.sixteenth_ticked = True
-      self.GetTickSound('sixteenth').play()
+    self.SetBeatLabel((int(self.beats_this_measure) / int(self.bpm))+1)
+    self.GetTickSound(tick_type).play()
+    self.beats_this_measure+=1
+
+
       
     #Triplets!  
-    elif self.ticks == round(((1000/TIMER_ACCURACY)*60)/(self.tempo * 3)) or self.ticks == round(((1000/TIMER_ACCURACY)*60*2)/(self.tempo * 3)):
-      #Reset this for the 16th note
-      self.triplet_ticked = True
-      self.GetTickSound('triplet').play()
-    
-    #Tick and keep going
-    self.ticks += 1
-    return True
+#    elif self.ticks == round(((1000/TIMER_ACCURACY)*60)/(self.tempo * 3)) or self.ticks == round(((1000/TIMER_ACCURACY)*60*2)/(self.tempo * 3)):
+#      #Reset this for the 16th note
+#      self.triplet_ticked = True
+#      self.GetTickSound('triplet').play()
+#    
+#    #Tick and keep going
+#    self.ticks += 1
+#    return True
     
   #Returns the link to the sound object for the given situation
   def GetTickSound(self, tick_type):
-    if tick_type == 'accent':
-      soundobject = self.GetSoundObjectByName(self.ticktype_accent, tick_type)
-      soundobject.set_volume(self.volume_master * self.volume_accent)
-      return soundobject
-    if tick_type == 'quarter':
-      soundobject = self.GetSoundObjectByName(self.ticktype_quarter, tick_type)
-      soundobject.set_volume(self.volume_master * self.volume_quarter)
-      return soundobject
-    if tick_type == 'eighth':
-      soundobject = self.GetSoundObjectByName(self.ticktype_eighth, tick_type)
-      soundobject.set_volume(self.volume_master * self.volume_eighth)
-      return soundobject
-    if tick_type == 'triplet':
-      soundobject = self.GetSoundObjectByName(self.ticktype_triplet, tick_type)
-      soundobject.set_volume(self.volume_master * self.volume_triplet)
-      return soundobject
-    elif tick_type == 'sixteenth':
-      soundobject = self.GetSoundObjectByName(self.ticktype_sixteenth, tick_type)
-      soundobject.set_volume(self.volume_master * self.volume_sixteenth)
-      return soundobject
-    else:
-      print "Error!"
+    ctl = getattr(self, 'ticktype_'+tick_type)
+    vol = getattr(self, 'volume_'+tick_type)
+    soundobject = self.GetSoundObjectByName(ctl, tick_type)
+    soundobject.set_volume(self.volume_master * vol)
 
   def GetSoundObjectByName(self, tick_name, tick_type):
-    #Tick
-    if tick_name == 1:
-      return self.tick_sound
-    #Tock
-    elif tick_name == 2:
-      return self.tock_sound
-    #Pulse
-    elif tick_name == 3:
-      return self.pulse_sound
-    #Ping
-    elif tick_name == 4:
-      return self.ping_sound
-    #Cowbell
-    elif tick_name == 5:
-      return self.cowbell_sound
-    #Claves
-    elif tick_name == 6:
-      return self.claves_sound
-    #Agogo Low
-    elif tick_name == 7:
-      return self.agogolow_sound
-    #Agogo High
-    elif tick_name == 8:
-      return self.agogohigh_sound
-    #Coffee Cup
-    elif tick_name == 9:
-      return self.coffeecup_sound
-    #Shaker
-    elif tick_name == 10:
-      return self.shaker_sound
-    #Voice
-    elif tick_name == 11:
-      if tick_type == 'quarter' or tick_type == 'accent':
-        if self.beat == 1:
-          return self.one_sound
-        elif self.beat == 2:
-          return self.two_sound
-        elif self.beat == 3:
-          return self.three_sound
-        elif self.beat == 4:
-          return self.four_sound
-        elif self.beat == 5:
-          return self.five_sound
-        elif self.beat == 6:
-          return self.six_sound
-        elif self.beat == 7:
-          return self.seven_sound
-        elif self.beat == 8:
-          return self.eight_sound
-        else:
-          return self.num_sound
-      elif tick_type == 'eighth':
-        return self.and_sound
-      elif tick_type == 'sixteenth':
-        if self.eighth_ticked == False:
-          return self.e_sound
-        else:
-          return self.a_sound
-      elif tick_type == 'triplet':
-        if self.eighth_ticked == False:
-          return self.tee_sound
-        else:
-          return self.ta_sound
-      
+    if tick_name<11:
+      return self.sound_list[tick_name-1]
+    elif tick_type=='accent' or tick_type=='quarter':
+      return self.vocal_sound_list[self.beats_this_measure]
+    elif tick_type == 'eighth':
+      return self.and_sound
+    elif tick_type == 'sixteenth':
+      if self.eighth_ticked == False:
+        return self.e_sound
+      else:
+        return self.a_sound
+    elif tick_type == 'triplet':
+      if self.eighth_ticked == False:
+        return self.tee_sound
+      else:
+        return self.ta_sound
     #if we still haven't returned anything
     return self.null_sound
 
