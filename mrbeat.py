@@ -15,9 +15,9 @@ log = logging.getLogger('mrbeat');
 log.debug('starting')
 
 #defines
-TIMER_ACCURACY = 25
+TIMER_ACCURACY = 5
 BEAT_LENGTH = 1
-FREQ = 44100
+FREQ = 22050
 BITSIZE = -16
 CHANNELS = 2
 BUFFER = 1024
@@ -33,10 +33,10 @@ def currentms():
   return round(time.time()*1000)
 
 def ms_to_bpm(ms):
-  return round((1000*60) / ms)
+  return int(round((1000*60) / ms))
 
 def bpm_to_ms(bpm):
-  return round(float(bpm)*(1000.0 / 60.0)) # beats/min * min/ms
+  return int(round(float(bpm)*(1000.0 / 60.0))) # beats/min * min/ms
 
 pygame.init()
 
@@ -134,13 +134,13 @@ class Main:
     #Other vars
     self.tempo = self.wTree.get_widget("tempo").get_value()
     self.bpm = self.wTree.get_widget("bpm").get_value()
-    self.taptempo_ticks = 1
     self.taptempo_mode = False
     self.clock = pygame.time.Clock()
     self.last_time = 0.0
     self.last_tap = None
     self.last_beat = 0
-    self.beats_this_measure = 0
+    self.first_beat = 0
+    self.current_beat = 0
     
     #Show the main window
     
@@ -157,7 +157,6 @@ class Main:
   def OnStop(self, widget):
     self.playing = False
     self.SetBeatLabel('-')
-    self.ticks = 0
     self.eighth_ticked = False
     self.sixteenth_ticked = False
     
@@ -217,15 +216,13 @@ class Main:
     self.wTree.get_widget("ticktype_triplet").set_active(0)
 
   def ResetBeat(self):
-    self.ticks = 0  #What is our tick count?
-    self.beat = 0
+    self.first_beat = currentms();
     self.eighth_ticked = False
     self.sixteenth_ticked = False
     self.triplet_ticked = False
 
   def TapTempo(self, widget):
     self.OnPlay(0)
-    log.debug('Tap Handler')
     this_tap = currentms()
     if self.last_tap and (this_tap - self.last_tap ) > 5000:
       self.taptempo_mode = False
@@ -241,41 +238,42 @@ class Main:
       self.taptempo_mode = True
 
     self.last_tap = currentms()
-    self.ticks = 0
-    self.taptempo_ticks = 1
-    self.beat = 0
 
   def ticking_loop(self):
     while self.playing:
       now = currentms()
-      if (now - self.last_time) > 25 :
+      if (now - self.last_time) > TIMER_ACCURACY :
         self.last_time = now
         self.tick_stuff()
-      #print 'debug - '+str(self.last_time)+' - '+str(time.time())
       if gtk.events_pending():
         gtk.main_iteration()
 
   def tick_stuff(self):
-    log.debug('Tick: %s  %s  %s %s %s %s', self.playing, self.tempo, bpm_to_ms( self.tempo / self.bpm ),self.bpm, self.beats_this_measure, self.CurrentQuarter())
+    #log.debug('Tick: %s  %s  %s %s %s %s', self.playing, self.tempo, 
+    #          bpm_to_ms( self.tempo / self.bpm )  ,
+    #          self.bpm, self.current_beat, self.CurrentQuarter())
     #don't run if you don't need to
     if not self.playing: return False
     now = currentms()
-    dur = bpm_to_ms( self.tempo / self.bpm ) # handle 16ths of instead of quarters
+    bpm = int(self.bpm)
+    dur = bpm_to_ms( self.tempo / bpm ) 
     # not time to beat yet
     if (now - self.last_beat) < dur: return False
     self.last_beat = now
     
-    if self.beats_this_measure >= ((int(self.bpm) * 4)-1):
-      self.beats_this_measure = 0
+    if self.current_beat >= bpm * 4: # handle 16ths of instead of quarters
+      log.debug('Beat reset[%s]', currentms()-self.first_beat)
+      self.first_beat = currentms();
+      self.current_beat = 0
 
-    if self.beats_this_measure == 0: tick_type = 'accent'
-    elif self.beats_this_measure % 4 == 0: tick_type = 'quarter'
-    elif self.beats_this_measure % 2 == 0: tick_type = 'eighth'
+    if self.current_beat == 0: tick_type = 'accent'
+    elif self.current_beat % 4 == 0: tick_type = 'quarter'
+    elif self.current_beat % 2 == 0: tick_type = 'eighth'
     else: tick_type = 'sixteenth'
 
     self.SetBeatLabel(self.CurrentQuarter()+1)
-    self.PlayTickSound(tick_type)
-    self.beats_this_measure+=1
+    self.PlayTickSound(tick_type, int(dur))
+    self.current_beat+=1
       
     #Triplets!  
 #    elif self.ticks == round(((1000/TIMER_ACCURACY)*60)/(self.tempo * 3)) or self.ticks == round(((1000/TIMER_ACCURACY)*60*2)/(self.tempo * 3)):
@@ -287,12 +285,15 @@ class Main:
 #    self.ticks += 1
 #    return True
   def CurrentQuarter(self):
-    return (int(self.beats_this_measure) / int(self.bpm))
+    #converting from 16ths back into quarters
+    return (int(self.current_beat) / 4)
 
   #Returns the link to the sound object for the given situation
-  def PlayTickSound (self, tick_type):
+  def PlayTickSound (self, tick_type, dur=0):
     snd = self.GetTickSound(tick_type)
-    if snd: snd.play()
+    if snd:
+      log.debug('Beat play [%s] - %s', currentms()-self.first_beat, tick_type)
+      snd.play(maxtime=dur)
 
   def GetTickSound(self, tick_type):
     ctl = getattr(self, 'ticktype_'+tick_type)
