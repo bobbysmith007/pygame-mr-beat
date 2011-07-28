@@ -256,7 +256,7 @@ class Main:
         gtk.main_iteration()
 
   def tick_stuff(self):
-    #log.debug('Tick: %s  %s  %s %s %s', self.playing, self.tempo, bpm_to_ms( self.tempo / self.bpm ),self.bpm, self.beats_this_measure)
+    log.debug('Tick: %s  %s  %s %s %s %s', self.playing, self.tempo, bpm_to_ms( self.tempo / self.bpm ),self.bpm, self.beats_this_measure, self.CurrentQuarter())
     #don't run if you don't need to
     if not self.playing: return False
     now = currentms()
@@ -273,7 +273,7 @@ class Main:
     elif self.beats_this_measure % 2 == 0: tick_type = 'eighth'
     else: tick_type = 'sixteenth'
 
-    self.SetBeatLabel((int(self.beats_this_measure) / int(self.bpm))+1)
+    self.SetBeatLabel(self.CurrentQuarter()+1)
     self.PlayTickSound(tick_type)
     self.beats_this_measure+=1
       
@@ -286,7 +286,9 @@ class Main:
 #    #Tick and keep going
 #    self.ticks += 1
 #    return True
-    
+  def CurrentQuarter(self):
+    return (int(self.beats_this_measure) / int(self.bpm))
+
   #Returns the link to the sound object for the given situation
   def PlayTickSound (self, tick_type):
     snd = self.GetTickSound(tick_type)
@@ -307,7 +309,7 @@ class Main:
       return self.sound_list[tick_name-1]
     else:# tick_name == 11:
       if tick_type=='accent' or tick_type=='quarter':
-        return self.vocal_sound_list[self.beats_this_measure]
+        return self.vocal_sound_list[self.CurrentQuarter()]
       elif tick_type == 'eighth':
         return self.and_sound
       elif tick_type == 'sixteenth':
