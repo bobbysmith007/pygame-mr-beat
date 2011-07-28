@@ -256,7 +256,7 @@ class Main:
         gtk.main_iteration()
 
   def tick_stuff(self):
-    log.debug('Tick: %s  %s  %s %s %s', self.playing, self.tempo, bpm_to_ms( self.tempo / self.bpm ),self.bpm, self.beats_this_measure)
+    #log.debug('Tick: %s  %s  %s %s %s', self.playing, self.tempo, bpm_to_ms( self.tempo / self.bpm ),self.bpm, self.beats_this_measure)
     #don't run if you don't need to
     if not self.playing: return False
     now = currentms()
@@ -274,10 +274,8 @@ class Main:
     else: tick_type = 'sixteenth'
 
     self.SetBeatLabel((int(self.beats_this_measure) / int(self.bpm))+1)
-    self.GetTickSound(tick_type).play()
+    self.PlayTickSound(tick_type)
     self.beats_this_measure+=1
-
-
       
     #Triplets!  
 #    elif self.ticks == round(((1000/TIMER_ACCURACY)*60)/(self.tempo * 3)) or self.ticks == round(((1000/TIMER_ACCURACY)*60*2)/(self.tempo * 3)):
@@ -290,31 +288,40 @@ class Main:
 #    return True
     
   #Returns the link to the sound object for the given situation
+  def PlayTickSound (self, tick_type):
+    snd = self.GetTickSound(tick_type)
+    if snd: snd.play()
+
   def GetTickSound(self, tick_type):
     ctl = getattr(self, 'ticktype_'+tick_type)
     vol = getattr(self, 'volume_'+tick_type)
-    soundobject = self.GetSoundObjectByName(ctl, tick_type)
-    soundobject.set_volume(self.volume_master * vol)
+    vol = self.volume_master * vol
+    if vol == 0 or ctl == 0: return None #disabled
+    snd = self.GetSoundObjectByName(ctl, tick_type)
+    if snd: snd.set_volume(self.volume_master * vol)
+    return snd
 
   def GetSoundObjectByName(self, tick_name, tick_type):
+    if tick_name == 0 : return None; # disabled
     if tick_name<11:
       return self.sound_list[tick_name-1]
-    elif tick_type=='accent' or tick_type=='quarter':
-      return self.vocal_sound_list[self.beats_this_measure]
-    elif tick_type == 'eighth':
-      return self.and_sound
-    elif tick_type == 'sixteenth':
-      if self.eighth_ticked == False:
-        return self.e_sound
-      else:
-        return self.a_sound
-    elif tick_type == 'triplet':
-      if self.eighth_ticked == False:
-        return self.tee_sound
-      else:
-        return self.ta_sound
+    else:# tick_name == 11:
+      if tick_type=='accent' or tick_type=='quarter':
+        return self.vocal_sound_list[self.beats_this_measure]
+      elif tick_type == 'eighth':
+        return self.and_sound
+      elif tick_type == 'sixteenth':
+        if self.eighth_ticked == False:
+          return self.e_sound
+        else:
+          return self.a_sound
+      elif tick_type == 'triplet':
+        if self.eighth_ticked == False:
+          return self.tee_sound
+        else:
+          return self.ta_sound
     #if we still haven't returned anything
-    return self.null_sound
+    return None
 
 start = Main()
 gtk.main()
