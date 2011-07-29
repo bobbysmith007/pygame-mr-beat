@@ -5,6 +5,7 @@ import gtk
 import gtk.glade
 import time
 import pygame.mixer
+#import wav
 import logging
 
 logging.basicConfig(level=logging.DEBUG,
@@ -36,9 +37,65 @@ def ms_to_bpm(ms):
   return int(round((1000*60) / ms))
 
 def bpm_to_ms(bpm):
-  return int(round(float(bpm)*(1000.0 / 60.0))) # beats/min * min/ms
+  return int(round((1000.0 * 60.0)/float(bpm))) # ms/min / beats/min = ms/beat 
+
+def beat_to_tick_type(i):
+  if i == 0: return 'accent'
+  elif i % 4 == 0: return 'quarter'
+  elif i % 2 == 0: return 'eighth'
+  else: return 'sixteenth'
+
+
 
 pygame.init()
+
+    #Load tick sounds
+tick_sound = pygame.mixer.Sound('sounds/click4.wav')
+tock_sound = pygame.mixer.Sound('sounds/click3.wav')
+pulse_sound = pygame.mixer.Sound('sounds/pulse.wav')
+ping_sound = pygame.mixer.Sound('sounds/ping.wav')
+cowbell_sound = pygame.mixer.Sound('sounds/cowbell.wav')
+claves_sound = pygame.mixer.Sound('sounds/claves.wav')
+agogolow_sound = pygame.mixer.Sound('sounds/agogo1.wav')
+agogohigh_sound = pygame.mixer.Sound('sounds/agogo2.wav')
+coffeecup_sound = pygame.mixer.Sound('sounds/coffeecup.wav')
+shaker_sound = pygame.mixer.Sound('sounds/shaker.wav')
+one_sound = pygame.mixer.Sound('sounds/one.wav')
+two_sound = pygame.mixer.Sound('sounds/two.wav')
+three_sound = pygame.mixer.Sound('sounds/three.wav')
+four_sound = pygame.mixer.Sound('sounds/four.wav')
+five_sound = pygame.mixer.Sound('sounds/five.wav')
+six_sound = pygame.mixer.Sound('sounds/six.wav')
+seven_sound = pygame.mixer.Sound('sounds/seven.wav')
+eight_sound = pygame.mixer.Sound('sounds/eight.wav')
+num_sound = pygame.mixer.Sound('sounds/num.wav')
+and_sound = pygame.mixer.Sound('sounds/and.wav')
+e_sound = pygame.mixer.Sound('sounds/e.wav')
+a_sound = pygame.mixer.Sound('sounds/a.wav')
+tee_sound = pygame.mixer.Sound('sounds/tee.wav')
+ta_sound = pygame.mixer.Sound('sounds/ta.wav')
+null_sound = pygame.mixer.Sound('sounds/nothing.wav')
+vocal_sound_list = [one_sound, two_sound, three_sound, 
+                    four_sound, five_sound, six_sound, 
+                    seven_sound, eight_sound]
+sound_list=[tick_sound, tock_sound, pulse_sound, ping_sound,
+            cowbell_sound, claves_sound, agogolow_sound,
+            agogohigh_sound, cowbell_sound, shaker_sound]
+
+def construct_rhythm(tempo, bpm):
+  f = '\x00\x00'*46 # = 1ms white noise
+  bpm = int(bpm)
+  dur = bpm_to_ms( tempo * 4 / bpm )
+  ssnd = ping_sound.get_buffer().raw
+  beat = ssnd + (f * dur)  
+  srhythm = beat * bpm
+  rhythm = None
+  try:
+    rhythm = pygame.mixer.Sound(srhythm)
+  except:
+    pass
+  rhythm.play()
+  return rhythm
 
 class Main:
   def __init__(self):
@@ -83,40 +140,6 @@ class Main:
     except pygame.error, exc:
       print "Could not initialize the sound system: %s" % exc
       return 1
-    
-    #Load tick sounds
-    self.tick_sound = pygame.mixer.Sound('sounds/click4.wav')
-    self.tock_sound = pygame.mixer.Sound('sounds/click3.wav')
-    self.pulse_sound = pygame.mixer.Sound('sounds/pulse.wav')
-    self.ping_sound = pygame.mixer.Sound('sounds/ping.wav')
-    self.cowbell_sound = pygame.mixer.Sound('sounds/cowbell.wav')
-    self.claves_sound = pygame.mixer.Sound('sounds/claves.wav')
-    self.agogolow_sound = pygame.mixer.Sound('sounds/agogo1.wav')
-    self.agogohigh_sound = pygame.mixer.Sound('sounds/agogo2.wav')
-    self.coffeecup_sound = pygame.mixer.Sound('sounds/coffeecup.wav')
-    self.shaker_sound = pygame.mixer.Sound('sounds/shaker.wav')
-    self.one_sound = pygame.mixer.Sound('sounds/one.wav')
-    self.two_sound = pygame.mixer.Sound('sounds/two.wav')
-    self.three_sound = pygame.mixer.Sound('sounds/three.wav')
-    self.four_sound = pygame.mixer.Sound('sounds/four.wav')
-    self.five_sound = pygame.mixer.Sound('sounds/five.wav')
-    self.six_sound = pygame.mixer.Sound('sounds/six.wav')
-    self.seven_sound = pygame.mixer.Sound('sounds/seven.wav')
-    self.eight_sound = pygame.mixer.Sound('sounds/eight.wav')
-    self.num_sound = pygame.mixer.Sound('sounds/num.wav')
-    self.and_sound = pygame.mixer.Sound('sounds/and.wav')
-    self.e_sound = pygame.mixer.Sound('sounds/e.wav')
-    self.a_sound = pygame.mixer.Sound('sounds/a.wav')
-    self.tee_sound = pygame.mixer.Sound('sounds/tee.wav')
-    self.ta_sound = pygame.mixer.Sound('sounds/ta.wav')
-    self.null_sound = pygame.mixer.Sound('sounds/nothing.wav')
-    self.vocal_sound_list = [self.one_sound, self.two_sound, self.three_sound, 
-                             self.four_sound, self.five_sound, self.six_sound, 
-                             self.seven_sound, self.eight_sound]
-    self.sound_list=[self.tick_sound, self.tock_sound, self.pulse_sound, self.ping_sound,
-                     self.cowbell_sound, self.claves_sound, self.agogolow_sound,
-                     self.agogohigh_sound, self.cowbell_sound, self.shaker_sound]
-        
         
     self.volume_master = self.wTree.get_widget("volume_master").get_value()
     self.volume_accent = self.wTree.get_widget("volume_accent").get_value()
@@ -149,13 +172,21 @@ class Main:
     self.window.show_all()
 
   def OnPlay(self, widget):
-    if not self.playing:
-      self.playing = True
-      self.ResetBeat()
-      self.ticking_loop()
+    self.playing = True
+    self.ResetBeat()
+    #self.ticking_loop()
+    self.rhthym = self.CreateRhythm()
+    try:
+      #self.rhthym.play(loops=-1)
+      pass
+    except TypeError, e:
+      pass
+
+    
       
   def OnStop(self, widget):
     self.playing = False
+    self.rhthym.stop()
     self.SetBeatLabel('-')
     self.eighth_ticked = False
     self.sixteenth_ticked = False
@@ -265,14 +296,10 @@ class Main:
       log.debug('Beat reset[%s]', currentms()-self.first_beat)
       self.first_beat = currentms();
       self.current_beat = 0
-
-    if self.current_beat == 0: tick_type = 'accent'
-    elif self.current_beat % 4 == 0: tick_type = 'quarter'
-    elif self.current_beat % 2 == 0: tick_type = 'eighth'
-    else: tick_type = 'sixteenth'
+    tick_type = beat_to_tick_type(self.current_beat)
 
     self.SetBeatLabel(self.CurrentQuarter()+1)
-    self.PlayTickSound(tick_type, int(dur))
+    #self.PlayTickSound(tick_type, int(dur))
     self.current_beat+=1
       
     #Triplets!  
@@ -304,27 +331,59 @@ class Main:
     if snd: snd.set_volume(self.volume_master * vol)
     return snd
 
+  def GetTickSoundBytes(self, tick_type):
+    snd = self.GetTickSound(tick_type).get_buffer().raw()
+    if snd: return snd.get_buffer().bytes()
+
   def GetSoundObjectByName(self, tick_name, tick_type):
     if tick_name == 0 : return None; # disabled
     if tick_name<11:
-      return self.sound_list[tick_name-1]
+      return sound_list[tick_name-1]
     else:# tick_name == 11:
       if tick_type=='accent' or tick_type=='quarter':
-        return self.vocal_sound_list[self.CurrentQuarter()]
+        return vocal_sound_list[self.CurrentQuarter()]
       elif tick_type == 'eighth':
-        return self.and_sound
+        return and_sound
       elif tick_type == 'sixteenth':
-        if self.eighth_ticked == False:
-          return self.e_sound
+        if eighth_ticked == False:
+          return e_sound
         else:
-          return self.a_sound
+          return a_sound
       elif tick_type == 'triplet':
-        if self.eighth_ticked == False:
-          return self.tee_sound
+        if eighth_ticked == False:
+          return tee_sound
         else:
-          return self.ta_sound
+          return ta_sound
     #if we still haven't returned anything
     return None
+
+
+  def CreateRhythm(self):
+    fperMs = 46.0
+    wait = '\x00\x00'
+    bpm = int(self.bpm)
+    # *4 to handle 16ths
+    dur = bpm_to_ms( self.tempo * bpm )
+    bytes=''
+    for i in range(0,16):
+      tt = beat_to_tick_type(i)
+      snd = self.GetTickSound(tt)
+      if snd:
+        lenMs = int(snd.get_length()*1000)
+        n = int((dur-lenMs) * fperMs)
+        bytes += snd.get_buffer().raw + (n*wait)
+      else:
+        n = int(dur * fperMs)
+        bytes += (n*wait)
+
+    try:
+      rhythm = pygame.mixer.Sound(bytes)
+      rhythm.play()
+    except TypeError, e:
+      log.exception(e)
+    return rhythm
+
+    
 
 start = Main()
 gtk.main()
